@@ -18,3 +18,21 @@ model Note {
   body      String   @default("")
   createdAt DateTime @default(now())
 }
+
+// Spec 002: a quote frozen when saved. Amounts are whole US cents and are never recalculated.
+model SavedQuote {
+  id                  String   @id // random link token, made by the app
+  model               String
+  quantity            Int
+  term                Int
+  service             String
+  listCents           Int
+  volumePercent       Int
+  volumeDiscountCents Int
+  termPercent         Int
+  termDiscountCents   Int
+  maintenanceCents    Int
+  monthlyCents        Int
+  totalCents          BigInt // up to 5.7 billion cents, over the Int range
+  savedAt             DateTime @default(now())
+}

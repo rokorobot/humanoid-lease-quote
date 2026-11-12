@@ -55,6 +55,33 @@ test("quote page: shows every error and no price for impossible input", async ({
   await expect(page.getByRole("table", { name: "Quote" })).toHaveCount(0);
 });
 
+test("saved quote: saving from the quote page opens its link", async ({
+  page,
+}) => {
+  await page.goto("/quote?model=standard&quantity=20&term=24&service=full");
+  await page.getByRole("button", { name: "Save quote" }).click();
+  await expect(page).toHaveURL(/\/quote\/[A-Za-z0-9_-]{22}$/);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Saved quote",
+  );
+  await expect(
+    page.getByText(/Saved on \d{4}-\d{2}-\d{2} \(UTC\)/),
+  ).toBeVisible();
+  await expect(page.getByRole("table", { name: "Quote" })).toContainText(
+    "Monthly price48,320.00 USD",
+  );
+});
+
+test("an unknown quote link answers 404", async ({ page }) => {
+  const response = await page.goto("/quote/AAAAAAAAAAAAAAAAAAAAAA");
+  expect(response?.status()).toBe(404);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Quote not found.",
+  );
+  const malformed = await page.goto("/quote/%E0");
+  expect(malformed?.status()).toBe(404);
+});
+
 // scripts/screenshot runs only this test. SCREENSHOT_PATH picks the page, e.g. /settings.
 test("screenshot", async ({ page }) => {
   const path = process.env.SCREENSHOT_PATH ?? "/";

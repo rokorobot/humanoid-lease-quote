@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import {
   calculateQuote,
-  formatUsd,
   MAX_QUANTITY,
   MIN_QUANTITY,
   MODELS,
@@ -9,6 +8,7 @@ import {
   SERVICES,
   TERMS,
 } from "@/domain/quote";
+import { QuoteTable } from "./quote-table";
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 
@@ -58,25 +58,6 @@ async function QuoteForm({ searchParams }: { searchParams: SearchParams }) {
   const submitted = Object.values(raw).some((value) => value !== undefined);
   const parsed = submitted ? parseQuoteRequest(raw) : undefined;
   const quote = parsed?.ok ? calculateQuote(parsed.value) : undefined;
-  const rows: [string, string][] = quote
-    ? [
-        ["List price", formatUsd(quote.listCents)],
-        [
-          `Volume discount ${quote.volumePercent}%`,
-          formatUsd(-quote.volumeDiscountCents),
-        ],
-        [
-          `Term discount ${quote.termPercent}%`,
-          formatUsd(-quote.termDiscountCents),
-        ],
-        ["Full maintenance", `+${formatUsd(quote.maintenanceCents)}`],
-        ["Monthly price", formatUsd(quote.monthlyCents)],
-        [
-          `Total over ${quote.request.term} months`,
-          formatUsd(quote.totalCents),
-        ],
-      ]
-    : [];
 
   return (
     <>
@@ -128,16 +109,15 @@ async function QuoteForm({ searchParams }: { searchParams: SearchParams }) {
       )}
 
       {quote && (
-        <table aria-label="Quote">
-          <tbody>
-            {rows.map(([label, amount]) => (
-              <tr key={label}>
-                <th scope="row">{label}</th>
-                <td>{amount}</td>
-              </tr>
+        <>
+          <QuoteTable quote={quote} />
+          <form method="post" action="/api/quotes">
+            {Object.entries(quote.request).map(([name, value]) => (
+              <input key={name} type="hidden" name={name} value={value} />
             ))}
-          </tbody>
-        </table>
+            <button type="submit">Save quote</button>
+          </form>
+        </>
       )}
     </>
   );
