@@ -18,7 +18,7 @@ Adapted from SoftFactory's `05_FAILURE_TAXONOMY_v0.1.md`. The classes use words 
 | `over-budget` | The run hit a token, time or retry cap. | run caps | |
 | `acceptance` | The work exists but does not meet the bar: a requirement has no passing test, or a correctness, design, security or operability item fails. | B1-B3, C1, C3, C4, D1-D6, E2, E4, F1-F3; `fail_to_pass`, `mutation_changed`, Verifier | |
 | `regression` | New work passes its own tests but breaks behavior that worked before. | `full_suite`, `integration_twins`; a revert after merge | |
-| `scope` | The PR changes things outside what was asked or outside what its class may touch. | A2-A4, B5, G1; `classify`, `diff_size` | on repeat |
+| `scope` | The PR changes things outside what was asked or outside what its class may touch. | A2-A5, B5, G1; `classify`, `diff_size` | on repeat |
 | `gate-tampering` | The agent changed a check to get a pass: deleted, skipped or weakened a test, disabled a rule, edited sensor config, or worked around the environment. | C2, G2; `test_integrity`, `workaround_scan` | yes |
 | `policy` | The agent used or tried to use something it may not: an unapproved dependency, a one-way data change, a host outside the allowlist, a path or permission outside its sandbox. | B4, E3, E5; `classify`, human labels | yes |
 | `false-claim` | The report says something that is not true, or claims a check that was not run. | G4 | |
