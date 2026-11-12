@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Static gates. Run before every commit.
+# Usage: scripts/check                 all four, cheapest first
+#        scripts/check <gate>          one of: format lint typecheck structural_lint
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+format() { npx biome format --colors=off .; }
+lint() { npx biome lint --error-on-warnings --colors=off .; }
+typecheck() {
+  npx prisma generate >/dev/null
+  npx next typegen >/dev/null
+  npx tsc --noEmit
+}
+structural_lint() { npx depcruise src --config .dependency-cruiser.cjs; }
+
+case "${1:-all}" in
+  all)
+    for gate in format lint typecheck structural_lint; do
+      echo "== $gate"
+      "$gate"
+    done
+    echo "check: all static gates passed"
+    ;;
+  format | lint | typecheck | structural_lint) "$1" ;;
+  *)
+    echo "check: unknown gate '$1'. Use one of: format lint typecheck structural_lint" >&2
+    exit 1
+    ;;
+esac

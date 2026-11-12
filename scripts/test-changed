@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# tests_changed gate: unit tests affected by the diff against a base ref (default origin/main).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+BASE="${1:-origin/main}"
+git rev-parse --verify --quiet "$BASE" >/dev/null || {
+  echo "test-changed: base ref '$BASE' not found. Fetch it, or pass a ref: scripts/test-changed <ref>" >&2
+  exit 1
+}
+npx vitest run --changed "$BASE"

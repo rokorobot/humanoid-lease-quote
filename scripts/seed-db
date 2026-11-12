@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Apply all migrations, then load sample data. Safe to run twice.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+source scripts/require-db
+npx prisma migrate deploy
+npx prisma db execute --file prisma/seed.sql
+echo "seed-db: migrations applied and sample data loaded"

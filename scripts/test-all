@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# full_suite gate: every unit test. Fails if the suite takes longer than the budget.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+BUDGET_SECONDS="${UNIT_SUITE_BUDGET_SECONDS:-120}"
+start=$(date +%s)
+npx vitest run
+elapsed=$(( $(date +%s) - start ))
+if [ "$elapsed" -gt "$BUDGET_SECONDS" ]; then
+  echo "test-all: unit suite took ${elapsed}s, over the ${BUDGET_SECONDS}s budget." >&2
+  echo "Fix: move slow tests to tests/integration, or remove real I/O and timers from unit tests." >&2
+  exit 1
+fi
+echo "test-all: passed in ${elapsed}s (budget ${BUDGET_SECONDS}s)"

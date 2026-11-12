@@ -1,0 +1,241 @@
+# Change-class policy. Humans own this file. Agents never edit it (CODEOWNERS).
+#
+# STATUS: DRAFT, NOT ENFORCED. No CI job reads this file yet. Until the `classify` gate exists,
+# every agent PR is handled as L1, whatever this file says.
+#
+# This file is stack-agnostic: the factory builds software in general. Everything that depends on
+# one product (paths, commands, thresholds) lives in factory/project.yaml, one per product repo.
+#
+# Autonomy levels:
+#   L0  Agents do not open PRs in this class on their own. Humans write; the Reviewer may still report.
+#       Exception: an agent may open one when a human owner asked for that specific change.
+#       The PR report says who asked and when, and a human still decides the merge.
+#   L1  Agent opens PR. Human reads the report AND the diff, then merges.
+#   L2  Agent opens PR. Human reads the report; reads the diff only if a gate or the report flags it.
+#   L3  Auto-merge when every gate passes. Covered by the weekly random audit.
+#
+# Classification: the Triage agent assigns a class from the issue (preplan Layer 3). The
+# `classify` gate then re-derives it from the diff. Triage's class is never trusted on its own.
+#   1. Each changed file gets every path class whose `paths` sets (in project.yaml) match it.
+#   2. A file that matches no path class is source code. Its class is the source class Triage
+#      assigned (lint-fix, refactor, or feature). With none assigned, it is `feature`. (fail closed)
+#   3. A manifest change that adds a package is `deps-new`, not `deps-update`.
+#   4. The PR's class is the highest-risk class of any file. Risk order, low to high, is the
+#      order of `classes` below. A PR of one class may also contain files of lower-risk classes.
+#   5. Gates: the union of the gates of every class matched. Approvers: the highest number.
+#      Autonomy: the lowest level.
+#   6. If Triage assigned a lower-risk class than the one derived, `classify` fails.
+#
+# Everything starts at L1 or below. A class moves up one level only through a human PR to this
+# file, citing the promotion evidence. (Staltz #13: premature automation is the root of all evil.)
+
+version: 2
+updated: 2026-11-11
+
+# DEVIATION from preplan 1.5, which says the requester can never approve. With one human on the
+# team that rule lets nothing merge. While true: approvers_required is capped at 1, and the human
+# who asked for a change may approve it. The authoring agent never counts, in either mode.
+# Pending the owner's decision. Set to false as soon as a second human joins.
+solo_mode: true
+
+defaults:
+  max_diff_lines: 400          # added + removed, excluding paths.generated and paths.lockfiles
+  approvers_required: 1        # humans
+  run_caps:                    # exceeding any cap fails the run; no graceful degradation
+    max_tokens: 2000000
+    max_wall_clock_minutes: 60
+    max_retries: 2
+    max_verifier_runs_per_pr: 3   # every run leaks a little about the holdout scenarios
+
+# Labels that unlock a gate. They count only when a code owner applied them. The gate checks who
+# applied the label, because any account with write access, agents included, can apply labels.
+human_labels:
+  dep-approved: allows adding a dependency
+  one-way-approved: allows a data change that cannot be undone
+  test-change-approved: allows changing, skipping, or deleting an existing test
+
+# Every gate named below must be listed here; an unknown name fails CI. Commands come from
+# project.yaml; a required gate with no command fails. (fail closed)
+#   check = deterministic code.   judge = LLM output, see "Judges".
+# Gates run in the order listed, cheapest first. `step` is the step in preplan Layer 4.
+# Step 8 (human approval, per class) and step 9 (rollout) follow the gates.
+gates:
+  classify:            {step: 1, kind: check, does: "derives the class from the diff (rules above); fails on a lower assigned class"}
+  provenance:          {step: 1, kind: check, does: "every agent commit has the Factory-* trailers; the model is a pinned ID, not an alias"}
+  spec_isolated:       {step: 1, kind: check, does: "a PR that changes a spec changes nothing else"}
+  spec_complete:       {step: 1, kind: check, does: "an Approved spec has no [NEEDS CLARIFICATION] marker and every FR appears in its requirement-to-test map"}
+  deps_single:         {step: 1, kind: check, does: "the PR changes exactly one dependency"}
+  diff_size:           {step: 1, kind: check, does: "added + removed lines within the class limit"}
+  secret_scan:         {step: 1, kind: check, does: "no secrets in the diff"}
+  format:              {step: 1, kind: check, does: "formatter reports no changes"}
+  lint:                {step: 1, kind: check, does: "linter passes"}
+  typecheck:           {step: 1, kind: check, does: "type checker passes"}
+  workaround_scan:     {step: 1, kind: check, does: "no new lint disables, type ignores, skip markers, --no-verify, or --force"}
+  test_integrity:      {step: 1, kind: check, does: "no existing test changed, skipped, or deleted, unless test-change-approved"}
+  migration_reversible: {step: 1, kind: check, does: "a down migration exists, unless one-way-approved"}
+  license_scan:        {step: 1, kind: check, does: "dependency licenses are on the allowlist"}
+  vuln_scan:           {step: 1, kind: check, does: "no known vulnerabilities at or above the threshold"}
+  structural_lint:     {step: 2, kind: check, does: "module-boundary rules pass"}
+  tests_changed:       {step: 2, kind: check, does: "tests for the changed scope pass"}
+  fail_to_pass:        {step: 3, kind: check, does: "CI runs each requirement's test on base (must fail) and on head (must pass); a PR with no requirement IDs fails"}
+  mutation_changed:    {step: 4, kind: check, does: "mutation score on changed lines meets thresholds.mutation_changed"}
+  full_suite:          {step: 5, kind: check, does: "the whole test suite passes"}
+  integration_twins:   {step: 5, kind: check, does: "integration tests pass against twins or recorded fixtures"}
+  verifier_verdict:    {step: 6, kind: judge, does: "the Verifier ran the holdout scenarios against the head commit"}
+  reviewer_report:     {step: 6, kind: judge, does: "a complete Reviewer report exists for the head commit"}
+  merge_queue:         {step: 7, kind: check, does: "rebased onto head and retested before merge"}
+
+# Judges never approve and are never the last word (preplan 1.5). Their verdicts route the PR:
+#   BLOCK item FAIL or UNSURE, or Verifier FAIL: merge is held until it is fixed, or a code
+#     owner overrides it in writing on the PR.
+#   WARN item FAIL or UNSURE: the PR is handled as L1; a code owner accepts it in writing.
+#   So L3 auto-merge needs zero FAIL and zero UNSURE on BLOCK and WARN items.
+#   Every override is recorded as a judge false positive (calibration data).
+
+gate_sets:
+  base:     [classify, provenance, secret_scan, diff_size, format, lint, reviewer_report]
+  code:     [typecheck, workaround_scan, test_integrity, structural_lint, tests_changed, full_suite, integration_twins, merge_queue]
+  behavior: [fail_to_pass, mutation_changed, verifier_verdict]
+
+calibration:
+  # Preplan 1.5: judges are checked against human-labelled examples. No class leaves L1 without it.
+  set: PRs with known, human-labelled defects, plus clean ones. Stored where the Reviewer cannot read the answers.
+  min_cases: 20                # guess, tune
+  min_block_catch_rate: 0.9    # guess. Share of seeded BLOCK-level defects the Reviewer fails.
+  max_false_block_rate: 0.1    # guess. Share of clean cases the Reviewer blocks.
+  rerun_on: [reviewer_model_change, checklist_change]
+  on_fail: every class above L1 is handled as L1 until the set passes again
+
+promotion:
+  # A class is eligible for +1 level, up to its max_autonomy, when ALL hold over the window:
+  window_merged_prs: 20
+  max_reverts: 0
+  max_incidents: 0
+  max_reviewer_misses: 0           # BLOCK-level problems a human found, in the diff or the audit, that the Reviewer passed. Recorded with the `reviewer-miss` label.
+  min_first_pass_acceptance: 0.8   # merged without a human-requested change
+  min_weeks_at_level: 2
+  calibration_passed: true
+  # Evidence is tied to the model that earned it (preplan 1.8):
+  on_implementer_model_change: every class above L1 is handled as L1 until the replay suite passes
+
+demotion:
+  # Any ONE trigger drops the class one level, floor L0, until a human re-promotes it.
+  # How it takes effect at once, without anyone editing this file: the trigger is recorded as an
+  # open issue labelled `demote:<class>`. CI treats the class as one level lower per open issue.
+  # Anyone, agents included, may open one. One opened by a deterministic gate or a human takes
+  # effect at once. One opened by an agent on its own judgement, the Reviewer included, takes
+  # effect only when a code owner adds the `confirmed` label: judges are advisory.
+  # Only a code owner may close one; CI checks who did.
+  triggers:
+    - a merged PR in this class is reverted for a defect
+    - a production incident is traced to a PR in this class
+    - a weekly audit finds a BLOCK-level problem the Reviewer passed
+    - a critical failure class (gate-tampering, policy, damage; see FAILURE_TAXONOMY.md) is found in a PR in this class, merged or not, and confirmed by a deterministic gate or a human
+  error_budget:
+    # Agent merges pause for ALL classes when either count is reached in a rolling 7 days:
+    pause_at_reverts: 2
+    pause_at_incidents: 1
+
+classes:
+  - name: docs
+    autonomy: L1
+    max_autonomy: L3
+    paths: [docs]
+    max_diff_lines: 600
+    gates: [base]
+    notes: Lowest risk. First class the Implementer works on (rollout weeks 3-4).
+
+  - name: tests
+    autonomy: L1
+    max_autonomy: L2
+    paths: [tests]
+    gates: [base, code]
+    notes: May add tests. Changing existing ones is held by test_integrity.
+
+  - name: lint-fix
+    autonomy: L1
+    max_autonomy: L3
+    source: true
+    description: Mechanical fixes for lint or type errors with no behavior change.
+    gates: [base, code]
+
+  - name: deps-update
+    autonomy: L1
+    max_autonomy: L3
+    description: Patch and minor upgrades of existing dependencies. Janitor-owned.
+    paths: [dependency_manifests, lockfiles]
+    gates: [base, code]
+    extra_gates: [deps_single, vuln_scan]
+
+  - name: refactor
+    autonomy: L1
+    max_autonomy: L2
+    source: true
+    description: Behavior-preserving restructure, including dead-code removal.
+    gates: [base, code]
+    extra_gates: [mutation_changed]
+
+  - name: feature
+    autonomy: L1
+    max_autonomy: L2
+    source: true
+    description: >
+      New or changed behavior from an Approved spec (factory/SPEC_TEMPLATE.md). Bug fixes belong here:
+      the issue is the spec, and the regression test is the fail-to-pass test.
+    gates: [base, code, behavior]
+    rollout: [flag_default_off, canary, auto_rollback]
+
+  - name: deps-new
+    autonomy: L1
+    max_autonomy: L1
+    description: Adds a dependency. Detected from the manifest diff, not from paths.
+    labels_required: [dep-approved]
+    gates: [base, code]
+    extra_gates: [license_scan, vuln_scan]
+
+  - name: specs
+    autonomy: L1
+    max_autonomy: L1
+    description: Requirement specs in the format of factory/SPEC_TEMPLATE.md. Written by the Spec agent, approved by a human.
+    paths: [specs]
+    gates: [base]
+    extra_gates: [spec_isolated, spec_complete]
+    notes: The Implementer never edits the spec it is building from.
+
+  - name: schema-migration
+    autonomy: L1
+    max_autonomy: L1
+    paths: [migrations]
+    approvers_required: 2
+    gates: [base, code, behavior]
+    extra_gates: [migration_reversible]
+
+  - name: infra-ci
+    autonomy: L0
+    max_autonomy: L1
+    description: >
+      CI, infrastructure, feature-flag defaults, and sensor config: the linter, type-checker and
+      test-runner settings, and the scripts the gates run.
+    paths: [infra, sensor_config, flag_config]
+    gates: [base, code]
+    notes: L0 now. At L1 an agent may propose; a human always reads the diff.
+
+  - name: security-sensitive
+    autonomy: L0
+    max_autonomy: L1
+    description: Auth, authz, payments, crypto, secrets handling, PII.
+    paths: [security_sensitive]
+    approvers_required: 2
+    gates: [base, code, behavior]
+    extra_gates: [vuln_scan]
+
+  - name: factory
+    autonomy: L0
+    max_autonomy: L1
+    paths: [factory]
+    max_diff_lines: 500        # owner decision 2026-11-11. Policy files cross-reference each other and a human always reads them.
+    gates: [base]
+    notes: L0 now, so only owner-requested PRs. At L1 the weekly Harness Improver may also propose on its own. A human always merges.
+
+# Change log: date, class, old -> new level, evidence link.
+history: []

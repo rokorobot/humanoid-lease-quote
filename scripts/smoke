@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+# Build the app, start it, and check it end to end in a real browser.
+# It writes test notes, so the database name must end in _test.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+export NEXT_TELEMETRY_DISABLED=1
+source scripts/require-db
+db_name="${DATABASE_URL##*/}"; db_name="${db_name%%\?*}"
+case "$db_name" in
+  *_test) ;;
+  *) echo "smoke: refusing to run against '$db_name'. Smoke tests write data." >&2
+     echo "Fix: point DATABASE_URL at a database whose name ends in _test." >&2
+     exit 1 ;;
+esac
+npx prisma generate >/dev/null
+npx prisma migrate deploy
+npx next build
+npx playwright test "$@"

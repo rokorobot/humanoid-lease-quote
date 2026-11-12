@@ -1,0 +1,79 @@
+# Project profile for a product built from the web-nextjs template. Humans own it (CODEOWNERS).
+# The stack-agnostic policy that reads it is factory/change-classes.yaml.
+#
+# Fail closed: a required gate with an empty command fails. An empty path set matches nothing.
+# Globs use CODEOWNERS / gitignore syntax.
+
+version: 1
+project: humanoid-lease-quote
+template: web-nextjs
+
+layer0:
+  language: "TypeScript, strict, plus noUncheckedIndexedAccess and exactOptionalPropertyTypes"
+  structural_lint: "dependency-cruiser (.dependency-cruiser.cjs)"
+  framework: "Next.js App Router for web and API; Prisma on Postgres for data; Zod for input validation"
+  formatter_linter: "Biome (biome.json)"
+  unit_suite_max_minutes: 2
+  scripts:
+    [
+      check,
+      test-changed,
+      test-all,
+      mutation,
+      test-integration,
+      smoke,
+      screenshot,
+      seed-db,
+      dev,
+      ci,
+      gates-selftest,
+    ]
+
+paths:
+  docs: ["docs/**", "**/*.md"]
+  specs: ["specs/**"]
+  tests: ["src/**/*.test.ts", "tests/**"]
+  dependency_manifests: ["package.json"]
+  lockfiles: ["package-lock.json"]
+  generated: ["src/generated/**", "next-env.d.ts"]
+  migrations: ["prisma/migrations/**", "prisma/schema.prisma"]
+  infra: [".github/**"]
+  sensor_config:
+    - "scripts/**"
+    - "biome.json"
+    - "tsconfig.json"
+    - ".dependency-cruiser.cjs"
+    - "vitest.config.mts"
+    - "vitest.integration.config.mts"
+    - "playwright.config.ts"
+    - "stryker.config.mjs"
+    - "prisma7.config.ts"
+    - "next.config.ts"
+    - ".node-version"
+  flag_config: []
+  security_sensitive: [] # add the auth, payments and PII paths as soon as they exist
+  factory:
+    - "factory/**"
+    - ".github/CODEOWNERS"
+    - "AGENTS.md"
+    - "CLAUDE.md"
+    - "skills/**"
+    - ".copier-answers.yml"
+
+commands:
+  format: "scripts/check format"
+  lint: "scripts/check lint"
+  typecheck: "scripts/check typecheck"
+  structural_lint: "scripts/check structural_lint"
+  tests_changed: "scripts/test-changed"
+  full_suite: "scripts/test-all"
+  mutation_changed: "scripts/mutation" # src/domain only, per changed file, not per changed line
+  integration_twins: "scripts/test-integration"
+  license_scan: "" # not chosen yet; adding a dependency stays blocked until it is
+  vuln_scan: "npm audit --audit-level=high"
+
+thresholds:
+  mutation_changed: 0.7 # keep in step with thresholds.break in stryker.config.mjs
+
+holdout_scenarios: ""
+calibration_set: ""

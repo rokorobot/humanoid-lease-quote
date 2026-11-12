@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Save a full-page screenshot of one page to reports/screenshots/, for the PR report's Demo line.
+# Usage: scripts/screenshot [url-path]   (default /)
+set -euo pipefail
+cd "$(dirname "$0")/.."
+SCREENSHOT_PATH="${1:-/}" exec scripts/smoke --grep screenshot

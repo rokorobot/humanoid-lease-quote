@@ -1,0 +1,21 @@
+# Factory control surface and sensors. Agents never merge changes here; a human code owner must approve.
+# Only enforced once branch protection on main requires "Review from Code Owners".
+# Keep in step with the specs, infra, sensor_config, flag_config and factory paths in factory/project.yaml.
+/factory/                        @rokorobot
+/.github/                        @rokorobot
+/AGENTS.md                       @rokorobot
+/CLAUDE.md                       @rokorobot
+/skills/                         @rokorobot
+/.copier-answers.yml             @rokorobot
+/specs/                          @rokorobot
+/scripts/                        @rokorobot
+/biome.json                      @rokorobot
+/tsconfig.json                   @rokorobot
+/.dependency-cruiser.cjs         @rokorobot
+/vitest.config.mts               @rokorobot
+/vitest.integration.config.mts   @rokorobot
+/playwright.config.ts            @rokorobot
+/stryker.config.mjs              @rokorobot
+/prisma7.config.ts               @rokorobot
+/next.config.ts                  @rokorobot
+/.node-version                   @rokorobot

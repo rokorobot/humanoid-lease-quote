@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Every gate, in pipeline order, cheapest first. CI runs exactly this; so can you.
+# Usage: scripts/ci [base-ref]    With a base ref, also runs the changed-scope gates.
+# Needs DATABASE_URL pointing at a Postgres database whose name ends in _test.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+export NEXT_TELEMETRY_DISABLED=1
+BASE="${1:-}"
+step() { echo; echo "######## $*"; }
+
+step "static gates"; scripts/check
+if [ -n "$BASE" ]; then
+  step "unit tests for the changed scope"; scripts/test-changed "$BASE"
+  step "mutation score for changed domain files"; scripts/mutation "$BASE"
+fi
+step "full unit suite"; scripts/test-all
+step "known vulnerabilities"; npm audit --audit-level=high
+step "gate self-test"; scripts/gates-selftest
+step "integration tests"; scripts/test-integration
+step "smoke test in a browser"; scripts/smoke
+echo; echo "ci: every gate passed"

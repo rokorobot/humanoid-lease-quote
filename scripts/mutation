@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# mutation_changed gate: mutation score for the src/domain files changed against a base ref.
+# Usage: scripts/mutation [base-ref]   (default origin/main)
+#        scripts/mutation --all        (every file in src/domain)
+set -euo pipefail
+cd "$(dirname "$0")/.."
+if [ "${1:-}" = "--all" ]; then
+  exec npx stryker run
+fi
+BASE="${1:-origin/main}"
+git rev-parse --verify --quiet "$BASE" >/dev/null || {
+  echo "mutation: base ref '$BASE' not found. Fetch it, or pass a ref: scripts/mutation <ref>" >&2
+  exit 1
+}
+files=$(git diff --relative --name-only --diff-filter=AM "$BASE" -- src/domain \
+  | grep -E '\.ts$' | grep -v -E '(\.test\.ts|/index\.ts)$' | paste -sd, - || true)
+if [ -z "$files" ]; then
+  echo "mutation: no src/domain files changed against $BASE; nothing to mutate"
+  exit 0
+fi
+npx stryker run --mutate "$files"
