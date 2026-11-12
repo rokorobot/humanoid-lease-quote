@@ -12,7 +12,7 @@
 
 **Input**: User description: "Someone chooses a robot model, a quantity, a lease term and a service level, and gets a monthly price. Volume discount above a certain fleet size, discount for longer terms with a minimum term, service levels basic and full maintenance, reject impossible input with clear messages."
 
-## User Scenarios & Testing *(mandatory)*
+## User Scenarios & Testing _(mandatory)_
 
 ### User Story 1 - Get a monthly price for a fleet (Priority: P1)
 
@@ -51,7 +51,7 @@ If the user asks for something that cannot be leased, the page says what is wron
 - Discounts that produce fractions of a cent are rounded once, at the end, to the nearest cent, halves rounded up.
 - The price for the same input is always the same: no dependence on date, time or locale.
 
-## Requirements *(mandatory)*
+## Requirements _(mandatory)_
 
 ### Functional Requirements
 
@@ -67,28 +67,28 @@ If the user asks for something that cannot be leased, the page says what is wron
 - **FR-010**: System MUST reject an unknown model or service level with a message naming the allowed values, and report every invalid field at once.
 - **FR-011**: System MUST show all amounts in USD with two decimals and thousands separators, e.g. "48,320.00 USD".
 
-### Requirement-to-test map *(mandatory, factory addition)*
+### Requirement-to-test map _(mandatory, factory addition)_
 
-| Requirement | Test name | Level |
-|---|---|---|
-| FR-001 | `quote: prices each model per robot per month` | unit |
-| FR-002 | `quote: list price is model price times quantity` | unit |
-| FR-003 | `quote: volume discount by fleet size at 9, 10, 49, 50 and 500 robots` | unit |
-| FR-004 | `quote: term discount applies after volume discount` | unit |
-| FR-005 | `quote: full maintenance is added after discounts and not discounted` | unit |
-| FR-006 | `quote: monthly and total are rounded half up to the cent only at the end` | unit |
-| FR-007 | `quote page: shows every pricing step for a valid quote` | smoke |
-| FR-008 | `quote: rejects quantity 0, 501, 2.5 and non-numbers` | unit |
-| FR-009 | `quote: rejects terms other than 12, 24 and 36` | unit |
-| FR-010 | `quote: reports every invalid field at once` | unit |
-| FR-011 | `quote: formats amounts as USD with two decimals and separators` | unit |
+| Requirement | Test name                                                              | Level |
+| ----------- | ---------------------------------------------------------------------- | ----- |
+| FR-001      | `quote: prices each model per robot per month`                         | unit  |
+| FR-002      | `quote: list price is model price times quantity`                      | unit  |
+| FR-003      | `quote: volume discount by fleet size at 9, 10, 49, 50 and 500 robots` | unit  |
+| FR-004      | `quote: term discount applies after volume discount`                   | unit  |
+| FR-005      | `quote: full maintenance is added after discounts and not discounted`  | unit  |
+| FR-006      | `quote: monthly and total are exact to the cent`                       | unit  |
+| FR-007      | `quote page: shows every pricing step for a valid quote`               | smoke |
+| FR-008      | `quote: rejects quantity 0, 501, 2.5 and non-numbers`                  | unit  |
+| FR-009      | `quote: rejects terms other than 12, 24 and 36`                        | unit  |
+| FR-010      | `quote: reports every invalid field at once`                           | unit  |
+| FR-011      | `quote: formats amounts as USD with two decimals and separators`       | unit  |
 
-### Key Entities *(include if feature involves data)*
+### Key Entities _(include if feature involves data)_
 
 - **Quote request**: robot model, quantity, lease term in months, service level.
 - **Quote**: the request plus list price, volume discount, term discount, maintenance charge, monthly price and total. Not stored in this feature.
 
-## Success Criteria *(mandatory)*
+## Success Criteria _(mandatory)_
 
 ### Measurable Outcomes
 
@@ -99,6 +99,7 @@ If the user asks for something that cannot be leased, the page says what is wron
 ## Assumptions
 
 - Prices, discounts and limits are placeholders from the owner's plan dated 2026-11-12 and will change; they are business rules, so changing them is a new spec.
+- With the current prices every amount is already a whole number of cents, so the rounding rule in FR-006 cannot change any result yet. It is kept so that a future price change is rounded the agreed way; its test only proves amounts are exact to the cent.
 - Prices exclude tax. One currency, USD.
 - No login: anyone with the link can get a quote.
 - Saving a quote and listing saved quotes are later specs (002, 003). Nothing is stored here.
