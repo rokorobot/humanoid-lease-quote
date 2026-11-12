@@ -45,6 +45,7 @@ There is no factory report and often no spec. The PR description is the ask for 
 | A2 | BLOCK | all | LLM | The PR does nothing the ask did not include. | List every changed file that no requirement explains. Drive-by refactors count. |
 | A3 | WARN | all | LLM | The PR is one concern. | If the report's summary needs "and" to join two unrelated changes, FAIL. |
 | A4 | WARN | all | CI `diff_size` | Diff size fits the change class limit. | Copy the gate result. |
+| A5 | BLOCK | specs | LLM | A new or changed spec will fit in one PR. | The spec has a size estimate, it uses the rate in `SPEC_TEMPLATE.md`, and it is within `max_diff_lines` of the spec's change class in `change-classes.yaml`. FAIL if it is missing or over the limit. |
 
 ## B. Correctness
 | ID | Severity | Applies to | Source | Check | How to verify |
@@ -112,3 +113,4 @@ Record every add, change, or retirement with date and the incident or PR that ca
 - 2026-11-11: review against the preplan, before first use. Added Applies-to and Source columns, moved deterministic checks to CI gates, added B5, D6 and the calibration section. Split G3 into G3 (complete, WARN) and G4 (true, BLOCK). C4 raised from NOTE to BLOCK to match the `mutation_changed` gate.
 - 2026-11-11: Reviewer now runs through claude-code-action with no shell or GitHub access; a workflow step posts its report. Delivery rule reworded to match.
 - 2026-11-12: every FAIL and UNSURE now carries a failure class from `FAILURE_TAXONOMY.md`, so findings can be counted.
+- 2026-11-12: added A5. Spec 001 of humanoid-lease-quote was approved at 11 FRs, built to 489 lines, and had to be split after the work was done.

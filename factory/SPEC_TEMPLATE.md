@@ -2,7 +2,7 @@
 
 Every feature the factory builds starts from a spec in this format, saved as `specs/<NNN-short-name>/spec.md`. The Spec agent writes it. A human approves it. The Implementer builds only from an approved spec and never edits it.
 
-The format is the spec template from GitHub Spec Kit (github/spec-kit v1.4.0, MIT, see `THIRD_PARTY_NOTICES.md`), kept as published so its tooling stays usable. The factory adds three things, each marked "Factory addition": the change class, the approval line, and the requirement-to-test map.
+The format is the spec template from GitHub Spec Kit (github/spec-kit v1.4.0, MIT, see `THIRD_PARTY_NOTICES.md`), kept as published so its tooling stays usable. The factory adds four things, each marked "Factory addition": the change class, the size estimate, the approval line, and the requirement-to-test map.
 
 Rules:
 - Say what and why, never how. No tech stack, file names, or implementation detail.
@@ -10,6 +10,7 @@ Rules:
 - Every `FR` appears in the requirement-to-test map before approval.
 - No `[NEEDS CLARIFICATION]` marker may remain in an approved spec. Each one is a question for a human.
 - One spec is one PR. If it cannot fit the change class's diff limit, split it into several specs.
+- Estimate the size before approval: about 45 changed lines per functional requirement, code and tests together (spec 001 of humanoid-lease-quote: 11 FRs, 489 lines). Replace the rate when real PRs show a better one. An estimate over the class limit means split the spec now, not after it is built.
 
 Copy everything below the line.
 
@@ -24,6 +25,8 @@ Copy everything below the line.
 **Status**: Draft <!-- Draft, then Approved. Only a human sets Approved. -->
 
 **Change class**: [from factory/change-classes.yaml, e.g. feature] <!-- Factory addition -->
+
+**Size estimate**: [N FRs × 45 = about N lines; class limit L] <!-- Factory addition -->
 
 **Approved by**: [human and date. Empty until approved.] <!-- Factory addition -->
 
