@@ -182,6 +182,7 @@ classes:
     description: >
       New or changed behavior from an Approved spec (factory/SPEC_TEMPLATE.md). Bug fixes belong here:
       the issue is the spec, and the regression test is the fail-to-pass test.
+    max_diff_lines: 600        # owner decision 2026-11-12. A small feature with its unit and smoke tests came to ~490 lines.
     gates: [base, code, behavior]
     rollout: [flag_default_off, canary, auto_rollback]
 
