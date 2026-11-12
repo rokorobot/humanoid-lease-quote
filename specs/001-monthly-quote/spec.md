@@ -4,11 +4,11 @@
 
 **Created**: 2026-11-12
 
-**Status**: Draft <!-- Draft, then Approved. Only a human sets Approved. -->
+**Status**: Approved <!-- Draft, then Approved. Only a human sets Approved. -->
 
 **Change class**: feature <!-- Factory addition -->
 
-**Approved by**: <!-- Factory addition -->
+**Approved by**: Robert Konecny (`rokorobot`), 2026-11-12, in chat ("approved") <!-- Factory addition -->
 
 **Input**: User description: "Someone chooses a robot model, a quantity, a lease term and a service level, and gets a monthly price. Volume discount above a certain fleet size, discount for longer terms with a minimum term, service levels basic and full maintenance, reject impossible input with clear messages."
 
