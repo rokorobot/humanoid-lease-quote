@@ -4,13 +4,13 @@
 
 **Created**: 2026-11-12
 
-**Status**: Draft <!-- Draft, then Approved. Only a human sets Approved. -->
+**Status**: Approved <!-- Draft, then Approved. Only a human sets Approved. -->
 
 **Change class**: schema-migration (adds stored data; the riskiest class in the PR wins) <!-- Factory addition -->
 
 **Size estimate**: 7 FRs × 45 = about 315 lines; class limit 400 <!-- Factory addition -->
 
-**Approved by**: <!-- Factory addition -->
+**Approved by**: Robert Konecny (`rokorobot`), 2026-11-12, in chat ("approve as recommended": no expiry, public links) <!-- Factory addition -->
 
 **Input**: User description: "Save a quote and show it again by its link."
 
