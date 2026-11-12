@@ -70,13 +70,13 @@ export function parseQuoteRequest(raw: unknown): ParseResult {
   return { ok: false, errors: [...byField.values()] };
 }
 
-export function volumeDiscountPercent(quantity: number): number {
+function volumeDiscountPercent(quantity: number): number {
   if (quantity >= 50) return 10;
   if (quantity >= 10) return 5;
   return 0;
 }
 
-export function termDiscountPercent(term: number): number {
+function termDiscountPercent(term: number): number {
   if (term === 36) return 10;
   if (term === 24) return 5;
   return 0;
