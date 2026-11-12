@@ -2,7 +2,9 @@ export default function Home() {
   return (
     <main>
       <h1>It works</h1>
-      <p>Replace this page with the product's first screen.</p>
+      <p>
+        <a href="/quote">Get a lease quote</a>
+      </p>
     </main>
   );
 }
