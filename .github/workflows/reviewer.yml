@@ -43,7 +43,7 @@ jobs:
       (github.event.pull_request.draft == false &&
        github.event.pull_request.head.repo.full_name == github.repository)
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
+    timeout-minutes: 45 # up to 25 waiting for CI, then the review
     permissions:
       contents: read
       pull-requests: read
@@ -79,6 +79,53 @@ jobs:
           fi
           echo "head_sha=$head_sha" >> "$GITHUB_OUTPUT"
           echo "base_ref=$base_ref" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for the PR's CI to finish
+        # So the report can cite real gate results instead of "pending". The wait is capped; if CI
+        # is still running at the cap, the review goes ahead and reports the pending checks as such.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SELF: ${{ github.workflow }}
+        run: |
+          # Done when at least one other check exists and none is pending on two polls in a row,
+          # so a workflow that registers its check a little late is not missed.
+          started=$(date +%s)
+          settled=0
+          while :; do
+            elapsed=$(( $(date +%s) - started ))
+            total=0 pending=0
+            # Judged by the output, not the exit code: gh's exit codes differ between versions and modes.
+            set +e
+            counts=$(gh pr checks "$PR" --repo "$GITHUB_REPOSITORY" --json bucket,workflow \
+              --jq '[.[] | select(.workflow != env.SELF)] | "\(length) \([.[] | select(.bucket == "pending")] | length)"' \
+              2> checks.err)
+            rc=$?
+            set -e
+            if [[ "$counts" =~ ^[0-9]+\ [0-9]+$ ]]; then
+              read -r total pending <<< "$counts"
+            elif ! grep -q "no checks reported" checks.err; then
+              echo "::warning::Could not read the PR's checks (exit $rc); trying again. $(cat checks.err)"
+              pending=1
+            fi
+            if [ "$total" -gt 0 ] && [ "$pending" -eq 0 ]; then
+              settled=$(( settled + 1 ))
+              if [ "$settled" -ge 2 ]; then
+                echo "CI finished after ${elapsed}s: $total checks."
+                break
+              fi
+            else
+              settled=0
+            fi
+            if [ "$total" -eq 0 ] && [ "$pending" -eq 0 ] && [ "$elapsed" -ge 90 ]; then
+              echo "::warning::No other checks appeared within 90 seconds; reviewing without CI results."
+              break
+            fi
+            if [ "$elapsed" -ge 1500 ]; then
+              echo "::warning::CI not finished after 25 minutes ($pending of $total pending, or unreadable); reviewing anyway."
+              break
+            fi
+            sleep 20
+          done
 
       - name: Check out the base branch (trusted)
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
