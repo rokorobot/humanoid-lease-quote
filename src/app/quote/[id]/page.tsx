@@ -3,7 +3,9 @@ import { MODELS, SERVICES } from "@/domain/quote";
 import { findSavedQuote } from "@/infra/saved-quotes-repo";
 import { QuoteTable } from "../quote-table";
 
-// Not streamed, so an unknown link gets a real 404 status (spec 002, FR-006).
+// Renders per request with no loading shell, so it may read the database at the top level.
+// Unknown links never get here: src/proxy.ts answers them with a 404. notFound() below only
+// covers a quote that disappears between the two lookups (it would show not-found.tsx with 200).
 export const instant = false;
 
 export default async function SavedQuotePage({
