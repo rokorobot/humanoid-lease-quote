@@ -4,12 +4,15 @@
 # - It runs on pull_request_target, so GitHub takes this file from the base branch. A PR that edits
 #   this workflow, the prompt or the checklist is still judged by the versions already on main.
 #   (Running it by hand from a branch is possible, and needs write access to the repository.)
-# - Two jobs. `review` runs the agent with a read-only token. `post` holds the only write
-#   permission, never runs the agent, and never checks out code.
+# - Three jobs. `review` runs the agent with a read-only token. `post` (pull-requests: write) and
+#   `log` (contents: write, pushes only to the run-log branch) hold the only write permissions,
+#   never run the agent, and never check out PR code.
 # - The criteria come from the base branch, not from the PR.
 # - Everything from the PR is handed over as data: files in review-input/, and its code in a
 #   folder outside the working directory, so its CLAUDE.md and AGENTS.md are not loaded as instructions.
 #   Nothing from the PR is ever executed.
+# - Every run leaves one record on the `run-log` branch (factory/RUN_LOG.md), written by the
+#   `log` job, which never runs the agent. Failed runs are recorded too.
 # - The agent can only read. It has no write, shell, network or MCP tools. Its report comes back
 #   as structured output and is checked before it leaves the runner: it must name the commit
 #   under review and contain no credential.
@@ -220,6 +223,7 @@ jobs:
             --json-schema '{"type":"object","properties":{"report":{"type":"string"}},"required":["report"],"additionalProperties":false}'
 
       - name: Check the report before it leaves the runner
+        id: check
         env:
           OUTPUT: ${{ steps.review.outputs.structured_output }} # passed through env, never pasted into the script
           HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
@@ -256,6 +260,63 @@ jobs:
           path: review-report.md
           if-no-files-found: error
 
+      - name: Write the run record
+        # Runs even when an earlier step failed, so failed runs are counted too. It never fails the
+        # job: a bug here must not stop the report from being posted. If no valid record comes out,
+        # the `log` job writes a fallback record instead.
+        if: always()
+        continue-on-error: true
+        env:
+          EXEC_FILE: ${{ steps.review.outputs.execution_file }}
+          CHECK: ${{ steps.check.outcome }}
+          HEAD_SHA: ${{ steps.pr.outputs.head_sha }}
+          CHECKLIST_SHA: ${{ steps.collect.outputs.checklist_sha }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+        run: |
+          result='{}'
+          if [ -n "$EXEC_FILE" ] && [ -s "$EXEC_FILE" ]; then
+            result=$(jq -c '[.[]? | select(.type == "result")] | last // {}' "$EXEC_FILE") || result='{}'
+          fi
+          blocks=null warns=null class=null outcome=failed
+          if [ "$CHECK" = success ]; then
+            summary=$(grep -m1 '^\*\*Summary:\*\*' review-report.md || true)
+            # First count on the summary line only, as a plain number; anything else is null.
+            blocks=$(grep -oE '[0-9]+ BLOCK' <<< "$summary" | head -n1 | grep -oE '^[0-9]+' || true)
+            warns=$(grep -oE '[0-9]+ WARN' <<< "$summary" | head -n1 | grep -oE '^[0-9]+' || true)
+            if [[ "$blocks" =~ ^[0-9]{1,6}$ ]]; then blocks=$((10#$blocks)); else blocks=null; fi
+            if [[ "$warns" =~ ^[0-9]{1,6}$ ]]; then warns=$((10#$warns)); else warns=null; fi
+            class=$(grep -m1 -oE 'Change class:?\**:? *`[a-z0-9-]+`' review-report.md | grep -oE '`[a-z0-9-]+`' | tr -d '`' || true)
+            class=$(jq -n --arg c "$class" 'if $c == "" then null else $c end')
+            case "$blocks" in
+              null) outcome=unparsed ;;
+              0) outcome=clean ;;
+              *) outcome=blocked ;;
+            esac
+          fi
+          jq -nc \
+            --arg repo "$GITHUB_REPOSITORY" --arg run_id "$GITHUB_RUN_ID" --arg attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg model "$REVIEWER_MODEL" --arg pr "$PR" --arg head "$HEAD_SHA" \
+            --arg checklist "$CHECKLIST_SHA" --arg workflow "$WORKFLOW_SHA" --arg outcome "$outcome" \
+            --argjson blocks "$blocks" --argjson warns "$warns" --argjson class "$class" \
+            --argjson r "$result" \
+            '{schema: 1, finished_at: (now | todate), repo: $repo, run_id: $run_id, attempt: ($attempt | tonumber),
+              agent: "reviewer", model: $model, prompt_version: {checklist: $checklist, workflow: $workflow},
+              pr: ($pr | tonumber), head_sha: $head, change_class: $class,
+              outcome: $outcome, blocks: $blocks, warns: $warns,
+              tokens: {input: $r.usage.input_tokens, output: $r.usage.output_tokens,
+                       cache_read: $r.usage.cache_read_input_tokens, cache_write: $r.usage.cache_creation_input_tokens},
+              cost_usd: $r.total_cost_usd, duration_ms: $r.duration_ms, turns: $r.num_turns}' > run-record.tmp
+          mv run-record.tmp run-record.json # only a complete record is ever uploaded
+          cat run-record.json
+
+      - if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: run-record
+          path: run-record.json
+          if-no-files-found: error
+
   post:
     needs: review
     runs-on: ubuntu-24.04
@@ -273,3 +334,57 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh pr comment "$PR" --repo "${{ github.repository }}" --body-file review-report.md
+
+  log:
+    # Saves this run's record to the `run-log` branch. Never runs the agent, never checks out PR code.
+    needs: review
+    if: always() && needs.review.result != 'skipped'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write # only to push the run-log branch
+      actions: read # to download the record
+    steps:
+      - name: Download the run record
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEW_RESULT: ${{ needs.review.result }}
+        run: |
+          if gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name run-record \
+            && jq -e 'type == "object" and .schema == 1' run-record.json > /dev/null; then
+            exit 0
+          fi
+          # No valid record. `failed`: the review job failed. `unrecorded`: it passed, but its record step did not.
+          outcome=unrecorded
+          [ "$REVIEW_RESULT" = success ] || outcome=failed
+          echo "::warning::No valid run record from the review job. Recording the run as $outcome."
+          jq -nc --arg repo "$GITHUB_REPOSITORY" --arg run_id "$GITHUB_RUN_ID" --arg attempt "$GITHUB_RUN_ATTEMPT" \
+            --arg model "$REVIEWER_MODEL" --arg pr "$PR" --arg outcome "$outcome" \
+            '{schema: 1, finished_at: (now | todate), repo: $repo, run_id: $run_id, attempt: ($attempt | tonumber),
+              agent: "reviewer", model: $model, pr: ($pr | tonumber), outcome: $outcome}' > run-record.json
+
+      - name: Append it to the run-log branch
+        # One new file per run, so runs never edit each other's records. If two runs push at the
+        # same moment, the later push is rejected and this job fails: visible, never silent.
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          month=$(date -u +%Y-%m)
+          file="runs/$month/$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-reviewer.json"
+          git init -q run-log && cd run-log
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git remote add origin "https://x-access-token:$GH_TOKEN@github.com/$GITHUB_REPOSITORY.git"
+          # The full ref name: a bare `run-log` would also match branches such as factory/run-log.
+          if git ls-remote --exit-code origin refs/heads/run-log > /dev/null; then
+            git fetch -q --depth=1 origin refs/heads/run-log
+            git checkout -q -b run-log FETCH_HEAD
+          else
+            git checkout -q --orphan run-log # first run in this repo
+          fi
+          mkdir -p "runs/$month"
+          cp ../run-record.json "$file"
+          git add "$file"
+          git commit -q -m "Run log: reviewer, run $GITHUB_RUN_ID attempt $GITHUB_RUN_ATTEMPT, PR #$PR"
+          git push -q origin HEAD:run-log
+          echo "Recorded $file"

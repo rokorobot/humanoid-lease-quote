@@ -30,13 +30,30 @@
 # file, citing the promotion evidence. (Staltz #13: premature automation is the root of all evil.)
 
 version: 2
-updated: 2026-11-11
+updated: 2026-11-14
 
 # DEVIATION from preplan 1.5, which says the requester can never approve. With one human on the
 # team that rule lets nothing merge. While true: approvers_required is capped at 1, and the human
 # who asked for a change may approve it. The authoring agent never counts, in either mode.
 # Pending the owner's decision. Set to false as soon as a second human joins.
 solo_mode: true
+
+# Self-improvement switch (preplan Layer 0, "Operating modes"). Controls the Harness Improver.
+#   off      it does nothing. Values are strings: always quote them.
+#   propose  it reads failed runs and reverted PRs and opens `factory`-class PRs. A human merges each.
+#   auto     not usable yet: needs a narrow exception to the `factory` class, added by a human PR.
+#            Until that exception exists, `auto` is handled as `propose`.
+# Fails closed: an unknown value is handled as `off`, and so is any value above `off` until the
+# preplan's rollout stage 3 exit criteria hold.
+# Drops one position, floor `off`, until a human raises it again, when a merged change the Harness
+# Improver made is reverted for a defect, or counts toward a `demotion` error-budget pause (preplan
+# Layer 0: "a self-made change is reverted or breaks the error budget"). Recorded as an open issue labelled `demote:self-improvement`.
+# Those issues follow the same opening, confirmation and closing rules as `demote:<class>` issues
+# in `demotion`, although `self-improvement` is not a class.
+# The `factory` class rules still apply in every position: this switch never lets a change merge
+# without a human.
+self_improvement:
+  mode: "off"                  # quoted: unquoted off is boolean false in YAML 1.1. Owner decision 2026-11-13
 
 defaults:
   max_diff_lines: 400          # added + removed, excluding paths.generated and paths.lockfiles
@@ -90,7 +107,8 @@ gates:
 #     owner overrides it in writing on the PR.
 #   WARN item FAIL or UNSURE: the PR is handled as L1; a code owner accepts it in writing.
 #   So L3 auto-merge needs zero FAIL and zero UNSURE on BLOCK and WARN items.
-#   Every override is recorded as a judge false positive (calibration data).
+#   An override because the judge was wrong is labelled `reviewer-false-block` (calibration data).
+#   An override that accepts a risk the judge correctly found is not a false positive.
 
 gate_sets:
   base:     [classify, provenance, secret_scan, diff_size, format, lint, reviewer_report]
@@ -105,6 +123,35 @@ calibration:
   max_false_block_rate: 0.1    # guess. Share of clean cases the Reviewer blocks.
   rerun_on: [reviewer_model_change, checklist_change]
   on_fail: every class above L1 is handled as L1 until the set passes again
+
+stages:
+  # Rollout stage exit criteria (preplan Part 3). Each repo is in one stage. It moves to the next
+  # only when every value of its current stage holds, counted over the repo's own history, and a
+  # human records the move in `stage_history` below with links to the evidence. All numbers: guess, tune.
+  # Labels named here count only when a code owner applied them; CI checks who did, as for human_labels.
+  stage_0:   # harnessable codebase
+    max_check_seconds: 120         # format, lint, type check and filtered tests: one command, fresh sandbox
+  stage_1:   # instructions + Reviewer
+    run_log: required              # every agent run in the window has a run-log record
+    window_reviewed_prs: 10        # consecutive merged PRs that the Reviewer reviewed at their head commit
+    max_reviewer_misses: 0         # `reviewer-miss`: a BLOCK-level problem a human found that the Reviewer passed
+    max_false_blocks: 1            # `reviewer-false-block`: a BLOCK the human overrode because the Reviewer was wrong.
+                                   # An override of a correct BLOCK (an accepted risk) is not a false block.
+  stage_2:   # Implementer on the lowest-risk class
+    window_agent_prs: 10           # consecutive Implementer PRs in the `docs`, `tests` or `lint-fix` class
+    min_first_pass_acceptance: 0.8 # merged without a human-requested change
+    max_unaddressed_mistakes: 0    # every `agent-mistake` issue is closed by a guide or sensor PR
+  stage_3:   # Verifier + first janitors
+    min_verifier_catches: 1        # a real defect the Verifier failed that the Implementer's tests passed
+    window_janitor_prs: 10
+    min_janitor_acceptance: 0.7    # janitor PRs merged, out of those opened
+  stage_4:   # one more class promoted + observability
+    window_promoted_class_prs: 20  # merged PRs in the newly promoted class
+    max_error_budget_pauses: 0     # in that window, pauses (demotion.error_budget) to which a revert or
+                                   # incident of a PR in the promoted class counted. Pauses caused only by
+                                   # other classes do not count against it.
+
+stage_history: []                  # date, repo, from -> to stage, evidence links
 
 promotion:
   # A class is eligible for +1 level, up to its max_autonomy, when ALL hold over the window:
@@ -143,7 +190,7 @@ classes:
     paths: [docs]
     max_diff_lines: 600
     gates: [base]
-    notes: Lowest risk. First class the Implementer works on (rollout weeks 3-4).
+    notes: Lowest risk. First class the Implementer works on (rollout stage 2).
 
   - name: tests
     autonomy: L1

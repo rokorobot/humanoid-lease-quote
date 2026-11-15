@@ -70,6 +70,7 @@ Copy everything below the line, down to the end of section 6.
 
 ## 7. Review (the Reviewer's report, posted as a separate comment)
 **Summary:** <!-- First line. BLOCK count, WARN count. One sentence: merge-ready or not, and why. -->
+**Change class:** <!-- the class you derived from the diff, in backticks, e.g. `docs`, then one sentence why. Always this exact label: the run log (factory/RUN_LOG.md) reads it. -->
 **Failure classes:** <!-- from factory/FAILURE_TAXONOMY.md, with item IDs, e.g. scope (A2), false-claim (G4). "none" if clean. -->
 **Reviewed commit:** <!-- head SHA. A review of an older commit does not count. -->
 **Reviewer:** <!-- run ID, pinned model ID -->
