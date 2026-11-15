@@ -31,7 +31,7 @@ What a verdict does is defined in `change-classes.yaml` under "Judges". In short
 - **Applies to**: `all`; `code` = every class except `docs`, `specs` and `tests`; or the classes named.
 - **Source**: `CI` = a deterministic gate decides. Copy its result and link it; do not re-derive it. If the gate is not built yet, do the check by hand and say so in the evidence. `LLM` = you judge.
 
-## Human-authored PRs (rollout weeks 1-2)
+## Human-authored PRs (rollout stages 0-1)
 There is no factory report and often no spec. The PR description is the ask for A1 and A2. C1 applies only if the PR names requirement IDs. G3 and G4 are left out.
 
 ---
@@ -104,7 +104,7 @@ There is no factory report and often no spec. The PR description is the ask for 
 The Reviewer is itself a sensor and has to be tested (preplan 1.5). The numbers are in `change-classes.yaml` under `calibration`.
 - Keep a set of PRs with known, human-labelled defects, plus clean ones. Store it where the Reviewer cannot read the answers.
 - Re-run the set on every Reviewer model change and every change to this file. Record the per-item catch rate in the changelog.
-- Two signals feed back into this file: a human override of a BLOCK (false positive), and a `reviewer-miss` label (a BLOCK-level problem a human found that the Reviewer passed).
+- Two signals feed back into this file: a `reviewer-false-block` label (a BLOCK a human overrode because the Reviewer was wrong; overriding a correct BLOCK to accept a risk does not count), and a `reviewer-miss` label (a BLOCK-level problem a human found that the Reviewer passed).
 - A Reviewer that never fails anything is evidence of weak detection, not of quality.
 
 ## Changelog
